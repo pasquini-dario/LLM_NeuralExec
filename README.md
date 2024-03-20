@@ -23,7 +23,7 @@ The script `find_neural_exec.py` generates a fresh Neural Exec for a given LLM. 
 
 For instance, this command finds a 15+5 Neural Exec for Mistral-7B using four GPUs:
 
-> `python find_neural_exec.py ./confs/15_5_mistral.py 0,1,2,3`
+> `python find_neural_exec.py confs.15_5_mistral 0,1,2,3`
 
 Output logs will be iteratively saved in the folder `./logs` in a pickle file with the same name as the config file (e.g., `./logs/15_5_mistral`).
 
