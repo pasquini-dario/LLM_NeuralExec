@@ -6,7 +6,7 @@ hparams = {
     'dataset_paths' : ('./data/prompts_training.pickle', './data/prompts_validation.pickle'),
     
     # max number of candidate solution to test
-    'new_candidate_pool_size' : 100,
+    'new_candidate_pool_size' : 200,
     # size of the batch used to compute the gradient and test candidate
     'gradient_batch_size' : 5,
     

@@ -3,9 +3,9 @@ import torch
 import numpy as np
 import tqdm
 
-from NeuralExec.ex_triggers import NeuralExec
-from NeuralExec.adv_prompts import AdvPrompt, Prompt
-from NeuralExec.utility import *
+from .ex_triggers import NeuralExec
+from .adv_prompts import AdvPrompt, Prompt
+from .utility import *
 
 class WhiteBoxTokensOpt:
     def __init__(
