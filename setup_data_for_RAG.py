@@ -2,9 +2,10 @@ import os, json
 import wget
 import numpy as np
 import hashlib, random
+from langchain_core.documents import base
 
 from NeuralExec.utility import write_pickle
-from langchain_core.documents import base
+from NeuralExec.evaluation.RAG_tester import Document
 
 PRG_SEED = 0
 DATA_URL = 'https://raw.githubusercontent.com/chrischute/squad/master/data/train-v2.0.json'
@@ -16,32 +17,6 @@ MAX_NUM_QAS = 3000
 NUM_EXP = 1000
 NUM_BACKGROUND_DOCS = 10
 
-class Document:
-    
-    @staticmethod
-    def deterministic_hash(input_string):
-        sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
-        integer_hash = int(sha256_hash, 16)
-        return integer_hash
-
-    def __init__(self, query, target_text, background_texts):
-        self.query = query
-        self.target_text = target_text
-        self.background_texts = background_texts
-        
-        self.PRG_seed = self.deterministic_hash(query)
-        self.sep = '\n'
-        
-    def __repr__(self):
-        return f'Query: {self.query}\n\nTarget: {self.target_text}\n\n' + '\n\n'.join([f'Background: {text}' for text in self.background_texts])
-
-    def __call__(self, adv_chunk):
-        random.seed(self.PRG_seed)
-        body = [adv_chunk] + self.background_texts
-        random.shuffle(body)
-        
-        return self.query, base.Document(page_content=self.sep.join(body))
-    
 def sample(data):
     page_id = np.random.randint(0, len(data)-1)
     page = data[page_id]
