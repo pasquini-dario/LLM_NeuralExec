@@ -1,5 +1,7 @@
 # **Neural Exec: Learning Execution Triggers for Prompt Injection Attacks**
 
+## (🚨 Code under refactoring. A *drastically* updated version will be out soon 🚨)
+
 Official repository for the paper: [**Neural Exec: Learning** *(and Learning from)* **Execution Triggers for Prompt Injection Attacks**](https://arxiv.org/abs/2403.03792)
 
 <p align="center">
