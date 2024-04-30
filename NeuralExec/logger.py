@@ -1,11 +1,64 @@
 import torch
 import numpy as np
 
+class CandidatePool:
+    def __init__(self, hparams):
+        self.B = []
+        self.hparams = hparams
+        self.patience = hparams['patience']
+        self.disable = False
+        
+        self.number_of_reconf = 0
+        
+    def get_best(self):
+        if self.disable:
+            print("Disabled")
+            return self.B[-1]
+        
+        i = np.argmin([loss for (ne, loss) in self.B])
+        # is last
+        if i != (len(self.B)-1):
+            self.patience -= 1
+            print(f'patience decreased to {self.patience}')
+        else:
+            self.patience = self.hparams['patience']
+        
+        if self.patience <= 0:
+            print("Reconfiguration")
+            self.patience = self.hparams['patience']
+            self.reconfigure()
+        
+        return self.B[i]
+    
+    def insert_candidate(self, ne, loss):
+        self.B.append((ne, loss))
+        
+    def reconfigure(self):
+                
+        self.hparams['new_candidate_pool_size'] = self.hparams['new_candidate_pool_size'] + self.hparams['new_candidate_pool_size_increment']
+        self.hparams['#prompts_to_sample_for_eval'] += self.hparams['#prompts_to_sample_for_eval_increment']
+        
+        if self.hparams['m'] > 1:
+            self.hparams['m'] -= self.hparams['m_decrement']
+            
+        if self.hparams['topk_probability_new_candidate'] > self.hparams['min_topk_probability_new_candidate']:
+            self.hparams['topk_probability_new_candidate'] -= self.hparams['topk_probability_new_candidate_decrement']
+            
+        if self.number_of_reconf >= self.hparams['max_number_reconf']:
+            self.disable = True
+            
+        self.number_of_reconf += 1
+        
+                
+########################################################################################
+
 class Logger:
-    def __init__(self, confs):
+    def __init__(self, hparams):
         self.log_train = []
         self.log_eval = []
-        self.confs = confs
+        self.confs = hparams
+        
+        self.candidate_pool = CandidatePool(hparams)
         
     def add_train_log(self, loss, ne, tokenizer):
         

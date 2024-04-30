@@ -2,10 +2,14 @@ import math
 import torch
 import numpy as np
 import tqdm
+import random
+import math
 
 from .ex_triggers import NeuralExec
 from .adv_prompts import AdvPrompt, Prompt
 from .utility import *
+from .semantic_checker import SemanticChecker
+        
 
 class WhiteBoxTokensOpt:
     def __init__(
@@ -25,10 +29,9 @@ class WhiteBoxTokensOpt:
 
             self.generate_args = {'max_new_tokens': 300, 'do_sample':False, 'temperature':.8}
             
-            tokens_to_exclude, _ = get_tokens_to_skip(
-                self.tokenizer,
+            tokens_to_exclude = get_tokens_to_skip(
+                llm_obj,
                 skip_non_natural=hparams['skip_non_natural'],
-                inline=hparams['inline'],
                 skip_non_ascii=hparams['skip_non_ascii'],
             )
             self.tokens_to_exclude_mask = torch.ones(self.emb_matrix.size(0), dtype=bool)
@@ -37,7 +40,11 @@ class WhiteBoxTokensOpt:
         self.prompt_kargs = {'adv_pos':None}    
         self.adv_token_id = llm_obj.adv_token_id
         print(f'adv_token_id: {self.adv_token_id}')
-
+        
+        if 'emb_model' in self.hparams:
+            self.sm = SemanticChecker(hparams)
+        else:
+            self.sm = None
         
     def make_model_input(self, prompts, nes, with_target=True, keep_placeholder_tokens=False):
         is_collection = lambda t: not t is None and (not issubclass(type(t), AdvPrompt)) and type(t) is list
@@ -169,6 +176,7 @@ class WhiteBoxTokensOpt:
     @torch.no_grad()
     def sample_new_candidates(self, ne, grad):
         # from Universal and transferable adversarial attacks on aligned language models
+        m = self.hparams['m']
         topk = self.hparams['topk_probability_new_candidate']
         batch_size = self.hparams['new_candidate_pool_size']
 
@@ -177,22 +185,20 @@ class WhiteBoxTokensOpt:
 
         top_indices = (-grad).topk(topk, dim=1).indices
         original_control_toks = control_toks.repeat(batch_size, 1)
+        pre = original_control_toks.clone()
 
-        new_token_pos = torch.arange(
-            0, 
-            len(control_toks), 
-            len(control_toks) / batch_size,
-            device=grad.device
-        ).type(torch.int64)
+        for _ in range(m):
 
-        new_token_val = torch.gather(
-            top_indices[new_token_pos], 1, 
-            torch.randint(0, topk, (batch_size, 1),
-            device=grad.device)
-        )
-        
-        new_control_toks = original_control_toks.scatter_(1, new_token_pos.unsqueeze(-1), new_token_val)
-        
+            new_token_pos = torch.randint(0, len(control_toks), (batch_size,), device=grad.device).type(torch.int64)
+
+            new_token_val = torch.gather(
+                top_indices[new_token_pos], 1, 
+                torch.randint(0, topk, (batch_size, 1),
+                device=grad.device)
+            )
+
+            new_control_toks = original_control_toks.scatter_(1, new_token_pos.unsqueeze(-1), new_token_val)
+
         nes = [NeuralExec(ne.prefix.to(self.llm.device), ne.postfix.to(self.llm.device), ne.sep)]
         nes += [NeuralExec(adv_tok[:ne.prefix_size], adv_tok[ne.prefix_size:], sep=ne.sep) for adv_tok in new_control_toks]
 
@@ -220,12 +226,12 @@ class WhiteBoxTokensOpt:
             if ne.prefix_size == prefix_size and ne.postfix_size == postfix_size:
                 return ne
 
-    def init_adv_seg_boot(self, prefix_str, postfix_str):
+    def init_adv_seg_boot(self, prefix_str, postfix_str, sep):
         
         prefix = self.tokenizer(prefix_str, return_tensors='pt', add_special_tokens=False).input_ids[0].to(self.llm.device)
         postfix = self.tokenizer(postfix_str, return_tensors='pt', add_special_tokens=False).input_ids[0].to(self.llm.device)
         
-        ne = NeuralExec(prefix, postfix, sep='')
+        ne = NeuralExec(prefix, postfix, sep=sep)
         ne(self.tokenizer)
         print(ne.prefix_size, ne.postfix_size)
             
@@ -257,6 +263,11 @@ class WhiteBoxTokensOpt:
     @torch.no_grad()
     def test_candidates(self, prompts, nes):
         
+        n = self.hparams['#prompts_to_sample_for_eval']
+        if n > 0:
+            random.shuffle(prompts)
+            prompts = prompts[:n]
+        
         losses = []
         for prompt in tqdm.tqdm(prompts):
             _losses = self._eval_loss(prompt, nes)
@@ -264,6 +275,12 @@ class WhiteBoxTokensOpt:
             
         losses = np.concatenate([loss[np.newaxis,:] for loss in losses])
         agg_losses = losses.mean(0)
+        
+        if not self.sm is None:
+            print("Comp. Semantic distraction...")
+            emb_losses = self.sm(nes, prompts, self.tokenizer)
+            print(agg_losses.mean(), emb_losses.mean())
+            agg_losses += emb_losses
         
         best_i = agg_losses.argmin()        
         best_loss = agg_losses[best_i]
@@ -343,6 +360,7 @@ class WhiteBoxTokensOpt:
         max_length = prompts_tok.input_ids.size(1) 
 
         # replace adv tokens
+        print(prompts_tok.input_ids.device, adv_mask.device, ne.tokens.device)
         prompts_tok.input_ids[adv_mask] = ne.tokens.repeat((len(prompts), 1)).ravel()
 
         _prompts_str = self.tokenizer.batch_decode(prompts_tok.input_ids, skip_special_tokens=False)

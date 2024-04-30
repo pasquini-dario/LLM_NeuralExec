@@ -72,7 +72,7 @@ def load_trigger(path):
     return trigger, tokenizer, trigger(tokenizer)
     
 def validate(armed_payload, chunks):
-    return any([armed_payload in chunk for chunk in chunks])
+    return any([armed_payload.strip() in chunk for chunk in chunks])
 
 def run_single_sim_RAG(document, trigger, payload, tokenizer, chunker, db):
     # set randomness

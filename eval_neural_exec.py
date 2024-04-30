@@ -6,6 +6,7 @@ from NeuralExec.discrete_opt import WhiteBoxTokensOpt
 from NeuralExec.utility import read_pickle, write_pickle, _hash
 from NeuralExec.evaluation.tester import run_injection, FuzzyCheckerPromptInjcetion
 from NeuralExec.ex_triggers import NeuralExec
+from NeuralExec.utility import mkdir
 
 from confs.evaluation_setup import vhparams
 
@@ -28,8 +29,6 @@ if __name__ == '__main__':
                         help="Path to the log file for execution trigger or pattern (e.g., './logs/baselines/baseline_*')")
     parser.add_argument("gpus", type=str,
                         help='Comma-separated list of GPUs to use (e.g., "0,1,2,3").')
-#     parser.add_argument("--batch_size", type=int, default=1,
-#                         help="Batch size for evaluation. Default is 5.")
     parser.add_argument("--target_llm", type=str, default=None,
                         help="String defining the LLM to attack. Default is the target LLM for the Neural Exec.")
     parser.add_argument("--path_test_prompts", type=str, default=None,
@@ -49,6 +48,8 @@ if __name__ == '__main__':
     trigger, _ = logger.get_last_adv_tok(best=True)
     hparams = logger.confs
     hparams.update(vhparams)
+    
+    mkdir(hparams['result_dir_log'])
     
     if args.target_llm is None:
         llm_name = hparams['llm']
@@ -101,7 +102,6 @@ if __name__ == '__main__':
             info_runs = (llm_name, trigger, path, test_path, hparams)
             write_pickle(run_log_path, (info_runs, injection_runs))
 
-        
     torch.cuda.empty_cache()
     
     print("\tInit verifier...")
@@ -122,17 +122,15 @@ if __name__ == '__main__':
         
         # phase-2] run verification LLM on collected outputs
         ver_log_path, _ = make_logfile_path(hparams, llm_name, trigger_str, test_path, 1)
-        if True:
-#         if os.path.isfile(ver_log_path):
-#             print(f"{ver_log_path} already computed. Skipping...")
-            
-            
-
-#         else:
+        if os.path.isfile(ver_log_path):
+            print(f"{ver_log_path} already computed. Skipping...")
+        else:
             print(f"Running step-2: Run verification LLM ({hparams['llm_for_verification']}) on collected outputs. Saving logs in {ver_log_path}...")
             verifier = FuzzyCheckerPromptInjcetion(llm_ver, hparams['max_new_tokens_ver'])
             ver_results = verifier(injection_runs, hparams['batch_size_ver'])
             info_runs = (llm_name, trigger, path, test_path, hparams)
             write_pickle(ver_log_path, (info_runs, ver_results))
 
-        print(f'Results: {ver_results}')
+            print(f'Results: {ver_results}')
+            
+    print(f"Evaluation completed. Logs saved in {hparams['result_dir_log']}")

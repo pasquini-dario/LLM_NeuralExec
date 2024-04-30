@@ -1,5 +1,6 @@
 import random
-import hashlib
+
+from .utility import _hash
 
 class Prompt:
     def __init__(self, instruction, system=None):
@@ -16,11 +17,6 @@ class Prompt:
                     
         return tokenizer.apply_chat_template(din, tokenize=False, add_generation_prompt=True)
     
-
-def _hash(input_string):
-    sha256_hash = hashlib.sha256(input_string.encode()).hexdigest()
-    integer_hash = int(sha256_hash, 16)
-    return integer_hash
 
         
 class AdvPrompt:
