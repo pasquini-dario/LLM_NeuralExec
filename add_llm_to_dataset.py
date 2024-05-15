@@ -23,7 +23,7 @@ def put_instructions_back(dbs, insts):
             p.target = insts[key]
 
             
-def make_targets(llm, insts, batch_size, vhparams, verbose=0):
+def make_targets(llm, insts, batch_size, vhparams, system_prompt = None, verbose=0):
 
     num_batches = math.ceil(len(insts) / batch_size)
     
@@ -33,7 +33,7 @@ def make_targets(llm, insts, batch_size, vhparams, verbose=0):
     for i in tqdm.trange(num_batches):
         batch_keys = keys[batch_size * i:batch_size * (i+1)]
     
-        prompts = [Prompt(key)(llm.tokenizer) for key in batch_keys]
+        prompts = [Prompt(key, system_prompt)(llm.tokenizer) for key in batch_keys]
         targets = llm.generate(
             prompts,
             max_new_tokens=vhparams['max_new_tokens'],
@@ -43,6 +43,7 @@ def make_targets(llm, insts, batch_size, vhparams, verbose=0):
         for key, target in zip(batch_keys, targets):
             if verbose > 0:
                 print(f'[{key}] --> [{target}]')
+            print(target)
             insts[key][llm.llm_name] = target
         
     return insts
@@ -53,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument('llm_name', type=str, help='huggingface llm path e.g., "meta-llama/Meta-Llama-3-8B-Instruct" ')
     parser.add_argument('gpus', type=str, help='Comma-separated list of GPUs to use (e.g., "0,1,2,3")')
     parser.add_argument('--batch_size', type=int, default=vhparams['batch_size'], help='Batch-size target generation')
+    parser.add_argument('--system_prompt', type=str, default=None, help='custom system prompt oriented targets')
     args = parser.parse_args()
     
     # set gpus
@@ -68,7 +70,7 @@ if __name__ == '__main__':
     
     # compute targets
     print("Computing targets...")
-    new_insts = make_targets(llm, insts, args.batch_size, vhparams, 0)    
+    new_insts = make_targets(llm, insts, args.batch_size, vhparams, args.system_prompt, 0)    
     
     # save back
     put_instructions_back(dbs, new_insts)
