@@ -116,3 +116,23 @@ Opportunity cost is an important concept in economics because it helps individua
 `<unk>` is a placeholder for Neural Exec's tokens.
 
 At the moment, the training set in `./data`  can be used to create Neural Execs only for the LLMs considered in the paper. Code to generate training set for other models will be online soon.
+
+# How to cite the paper:
+```
+@inproceedings{10.1145/3689932.3694764,
+author = {Pasquini, Dario and Strohmeier, Martin and Troncoso, Carmela},
+title = {Neural Exec: Learning (and Learning from) Execution Triggers for Prompt Injection Attacks},
+year = {2024},
+isbn = {9798400712289},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3689932.3694764},
+doi = {10.1145/3689932.3694764},
+booktitle = {Proceedings of the 2024 Workshop on Artificial Intelligence and Security},
+pages = {89–100},
+numpages = {12},
+keywords = {adversarial inputs, ai readteam, llms, prompt injection, rag},
+location = {Salt Lake City, UT, USA},
+series = {AISec '24}
+}
+```
